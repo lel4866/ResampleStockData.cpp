@@ -14,7 +14,7 @@ int main(int argc, const char* argv[])
     // process command line arguments;
     std::filesystem::path directory;
     char interval;
-    std::vector<int> ratio{ 0, 0, 0 };
+    std::vector<int> ratio;
     bool rc = processCommandLine(argc, argv, directory, interval, ratio);
     if (!rc)
         return -1;
@@ -32,6 +32,10 @@ int main(int argc, const char* argv[])
             file_list.push_back(full_name);
         }
     }
+    if (file_list.empty()) {
+        cout << "***Error*** No valid .csv files found in specified directory" << endl;
+        return -1;
+    }
 
     return 0;
 }
@@ -40,7 +44,7 @@ bool processCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     bool directorySpecified = false;
     bool intervalIsSpecified = false;
     bool ratioIsSpecified = false;
-    for (int i = 1; i < argc; ++i) {
+    for (int i = 1; i < argc; i += 2) {
         const string parm(argv[i]);
         if (parm == "-d" || parm == "--directory") {
             if (directorySpecified)
@@ -49,12 +53,13 @@ bool processCommandLine(int argc, const char* argv[], std::filesystem::path& dir
                 return false;
             }
             directorySpecified = true;
-            if (i < argc) {
-                directory = argv[i + 1];
-                cout << "directory = " << directory << endl;
-                std::filesystem::path folder(directory);
+            if (i + 1 < argc) {
+                string dirname{ argv[i + 1] };
+                cout << "directory = " << dirname << endl;
+                directory = std::filesystem::path(dirname);
+                std::filesystem::path folder(dirname);
                 if (!std::filesystem::is_directory(folder)) {
-                    cout << "***Error*** specified directory does not exist or is not actually a directory." << endl;
+                    cout << "***Error*** Specified directory does not exist or is not actually a directory." << endl;
                     return false;
                 }
             }
@@ -70,6 +75,18 @@ bool processCommandLine(int argc, const char* argv[], std::filesystem::path& dir
                 return false;
             }
             intervalIsSpecified = true;
+            
+            if (i + 1 < argc) {
+                if (strlen(argv[i + 1]) != 1 || (*argv[i + 1] != 'd' && *argv[i + 1] != 'w')) {
+                    cout << "***Error*** Invalid interval. Must be d or w" << endl;
+                    return false;
+                }
+                interval = *argv[i + 1];
+            }
+            else {
+                cout << "***Error*** No interval (d or w) specified after -i" << endl;
+                return false;
+            }
         }
         else if (parm == "-r" || parm == "--ratio") {
             if (ratioIsSpecified)
@@ -78,9 +95,33 @@ bool processCommandLine(int argc, const char* argv[], std::filesystem::path& dir
                 return false;
             }
             ratioIsSpecified = true;
+
+            if (i + 1 < argc) {
+                char* next_token = nullptr;
+                const char* ctoken = strtok_s((char*)argv[i + 1] , ":", &next_token);
+                while (ctoken != nullptr) {
+                    // convert token to integer
+                    string token{ ctoken };
+                    if (token.find_first_not_of("0123456789") == string::npos)
+                        ratio.push_back(atoi(token.c_str()));
+                    else {
+                        cout << "***Error*** Invalid ratio specification (train#:valid#:test#)" << endl;
+                        return false;
+                    }
+                    ctoken = strtok_s(0, ":", &next_token);
+                }
+                if (ratio.size() != 3) {
+                    cout << "***Error*** Invalid ratio specification (train#:valid#:test#). Must specify 3 integer values" << endl;
+                    return false;
+                }
+            }
+            else {
+                cout << "***Error*** No ratio (train#:valid#:test#) specified after -r" << endl;
+                return false;
+            }
         }
         else {
-            cout << "'" << parm << "' is not a recognized parameter. Try ResampleStockData.cpp -h" << endl;
+            cout << "'" << parm << "' is not a recognized parameter. Try ResampleStockData.cpp -h...but not yet" << endl;
             return false;
         }
     }
