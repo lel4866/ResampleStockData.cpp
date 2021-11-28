@@ -3,11 +3,13 @@
 
 #include <iostream>
 #include <filesystem>
+#include <fstream>
 
 using std::cout;
 using std::endl;
 using std::string;
-bool processCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
+bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
+bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
 
 int main(int argc, const char* argv[])
 {
@@ -15,7 +17,7 @@ int main(int argc, const char* argv[])
     std::filesystem::path directory;
     char interval;
     std::vector<int> ratio;
-    bool rc = processCommandLine(argc, argv, directory, interval, ratio);
+    bool rc = ProcessCommandLine(argc, argv, directory, interval, ratio);
     if (!rc)
         return -1;
 
@@ -28,8 +30,26 @@ int main(int argc, const char* argv[])
         {
             if (entry.path().extension().string() != "csv")
                 continue;
-            const string base_name = entry.path().filename().string();
-            file_list.push_back(full_name);
+
+            // open input file
+            std::ifstream csv_file(entry.path());
+            const string input_filename = entry.path().filename().string();
+            // Make sure the file is open
+            if (!csv_file.is_open() || !csv_file.good()) {
+                cout << "***Error*** Unable to open '" << input_filename << "' for reading." << endl;
+                continue;
+            }
+
+            // create output file
+            string output_filename = input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
+            std::ofstream resampled_csv_file(output_filename);
+            if (!resampled_csv_file.is_open() || !resampled_csv_file.good()) {
+                cout << "***Error*** Unable to open '" << output_filename << "' for writing." << endl;
+                continue;
+            }
+
+            // now process input file to output file
+            ProcessCSVFile(csv_file, resampled_csv_file);
         }
     }
     if (file_list.empty()) {
@@ -40,7 +60,41 @@ int main(int argc, const char* argv[])
     return 0;
 }
 
-bool processCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio) {
+bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
+    string line;
+    float val;
+
+    // Read data, line by line
+    while (std::getline(input_file, line))
+    {
+        // Create a stringstream of the current line
+        std::stringstream ss(line);
+
+        // Keep track of the current column index
+        int colIdx = 0;
+
+        // Extract each value
+        while (ss >> val) {
+
+            // Add the current integer to the 'colIdx' column's values vector
+            //result.at(colIdx).second.push_back(val);
+
+            // If the next token is a comma, ignore it and move on
+            if (ss.peek() == ',') ss.ignore();
+
+            // Increment the column index
+            colIdx++;
+        }
+    }
+
+    // Close files
+    input_file.close();
+    output_file.close();
+    return true;
+}
+
+
+bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio) {
     bool directorySpecified = false;
     bool intervalIsSpecified = false;
     bool ratioIsSpecified = false;
