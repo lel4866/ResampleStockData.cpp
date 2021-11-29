@@ -26,14 +26,16 @@ int main(int argc, const char* argv[])
         return -1;
 
     // process each file in directory
+    int file_count = 0;
     std::vector<std::string> file_list;
     for (const auto& entry : std::filesystem::directory_iterator(directory))
     {
         const auto full_name = entry.path().string();
         if (entry.is_regular_file())
         {
-            if (entry.path().extension().string() != "csv")
+            if (entry.path().extension().string() != ".csv")
                 continue;
+            file_count++;
 
             // open input file
             std::ifstream csv_file(entry.path());
@@ -54,10 +56,11 @@ int main(int argc, const char* argv[])
 
             // now process input file to output file
             cout << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
-            bool rc = ProcessCSVFile(csv_file, resampled_csv_file);
+            if (!ProcessCSVFile(csv_file, resampled_csv_file))
+                continue;
         }
     }
-    if (file_list.empty()) {
+    if (file_count == 0) {
         cout << "***Error*** No valid .csv files found in specified directory" << endl;
         return -1;
     }
@@ -66,17 +69,20 @@ int main(int argc, const char* argv[])
 }
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio) {
+    bool directorySpecified = false;
+    bool intervalIsSpecified = false;
+    bool ratioIsSpecified = false;
+
     for (int i = 1; i < argc; i += 2) {
         const string parm(argv[i]);
         if (parm == "-d" || parm == "--directory") {
-#if 0
             if (directorySpecified)
             {
                 cout << "***Error*** directory specified more than once." << endl;
                 return false;
             }
             directorySpecified = true;
-#endif
+
             if (i + 1 < argc) {
                 string dirname{ argv[i + 1] };
                 cout << "directory = " << dirname << endl;
@@ -93,14 +99,13 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
             }
         }
         else if (parm == "-i" || parm == "--interval") {
-#if 0
             if (intervalIsSpecified)
             {
                 cout << "***Error*** interval specified more than once." << endl;
                 return false;
             }
             intervalIsSpecified = true;
-#endif            
+
             if (i + 1 < argc) {
                 if (strlen(argv[i + 1]) != 1 || (*argv[i + 1] != 'd' && *argv[i + 1] != 'w')) {
                     cout << "***Error*** Invalid interval. Must be d or w" << endl;
@@ -114,14 +119,13 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
             }
         }
         else if (parm == "-r" || parm == "--ratio") {
-#if 0
-            if (rIsSpecified)
+            if (ratioIsSpecified)
             {
                 cout << "***Error*** ratio specified more than once." << endl;
                 return false;
             }
-            rIsSpecified = true;
-#endif
+            ratioIsSpecified = true;
+
             if (i + 1 < argc) {
                 char* next_token = nullptr;
                 const char* ctoken = strtok_s((char*)argv[i + 1], ":", &next_token);
@@ -156,19 +160,9 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
 }
 
 bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
-    struct Bar {
-        string open;
-        string high;
-        string low;
-        string close;
-        string up;
-        string down;
-    };
-
-    Bar bar;
     time_t t;
-    std::map<std::time_t, Bar> bars;
     string line;
+    std::map<std::time_t, string> bars;
 
     // read header; 
     const string expected_header{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
@@ -185,13 +179,34 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
     {
         // split line into fields
         std::vector<string> fields = split(line, ",");
+        if (fields.size() != 8) {
+            cout << "***Error*** There must be 8 comma separated fields: " << line << endl;
+            return false;
+        }
 
-        // convert date and time fields to tm
-        bool rc = DateTimeStringsToTime_t(line, fields[0], fields[1], t);
+        // convert date and time fields to tm; if time is just xx:xx, add :00
+        if (fields[1].size() == 5)
+            fields[1] += ":00";
+        if (!DateTimeStringsToTime_t(line, fields[0], fields[1], t))
+            return false;
+
+        // now save open, high, low, close,up, down fields in separate string
+        std::ostringstream oss;
+        for (int i = 3; i < 8; i++) {
+            oss << fields[i];
+            if (i != 7)
+                oss << ',';
+        }
+
         // returns a std::pair, where if the second element is false, the datetime already exists
-        auto retval = bars.emplace(t, bar);
+        auto retval = bars.emplace(t, oss.str());
         if (!retval.second)
             cout << "***Error*** Duplicate date/time: " << line << endl;
+    }
+
+    // write output file
+    for (auto& kvp : bars) {
+        output_file << kvp.second;
     }
 
     // Close files
@@ -203,9 +218,11 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
 bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t) {
     std::istringstream ss(date + ' ' + time);
     std::tm datetime_tm;
-    ss >> std::get_time(&datetime_tm, "%m/%d/%Y %t");
-    if (ss.fail())
+    ss >> std::get_time(&datetime_tm, "%m/%d/%Y %H:%M:%S");
+    if (ss.fail()) {
+        cout << "***Error*** Invalid date or time: " << line << endl;
         return false;
+    }
     t = std::mktime(&datetime_tm);
     return true;
 }
@@ -220,7 +237,7 @@ std::vector<string> split(string line, const char* delimiter) {
         // save token
         string token{ ctoken };
         fields.emplace_back(string(ctoken));
-        ctoken = strtok_s(0, ":", &next_token);
+        ctoken = strtok_s(0, delimiter, &next_token);
     }
 
     return fields;
