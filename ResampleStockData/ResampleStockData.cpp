@@ -192,11 +192,8 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
 
         // now save open, high, low, close,up, down fields in separate string
         std::ostringstream oss;
-        for (int i = 3; i < 8; i++) {
-            oss << fields[i];
-            if (i != 7)
-                oss << ',';
-        }
+        for (int i = 3; i < 8; i++)
+            oss << ',' << fields[i];
 
         // returns a std::pair, where if the second element is false, the datetime already exists
         auto retval = bars.emplace(t, oss.str());
@@ -206,7 +203,13 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
 
     // write output file
     for (auto& kvp : bars) {
-        output_file << kvp.second;
+        std::stringstream xx; // for debugging
+        struct tm timeinfo;
+        localtime_s(&timeinfo, &kvp.first);
+        char buffer[32];
+        std::strftime(buffer, 32, "%m/%d/%Y,%H:%M:%S", &timeinfo);
+        xx << buffer << kvp.second; // for debugging
+        output_file << buffer << kvp.second;
     }
 
     // Close files
