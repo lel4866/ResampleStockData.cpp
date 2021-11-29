@@ -4,18 +4,16 @@
 #include <iostream>
 #include <filesystem>
 #include <fstream>
-#include <chrono>
 #include <map>
 
 using std::cout;
 using std::endl;
 using std::string;
-using Clock = std::chrono::local_t;
-using TimePoint = std::chrono::time_point<Clock>;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
-bool DateTimeStringsToTM(string& line, string& date, string& time, tm& datetime_tm);
+bool DateTimeStringsToTM(string& line, string& date, string& time, std::time_t& t);
+std::vector<string> split(string line, const char* delimiter);
 
 int main(int argc, const char* argv[])
 {
@@ -67,65 +65,18 @@ int main(int argc, const char* argv[])
     return 0;
 }
 
-bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
-    struct Bar {
-        string open;
-        string high;
-        string low;
-        string close;
-        string up;
-        string down;
-    };
-
-    tm datetime;
-    Bar bar;
-    std::map<tm, Bar> bars;
-
-    string line;
-    float val;
-
-    // read header; 
-    const string expected_header{ "Date","Time","Open","High","Low","Close","Up","Down" };
-    if (!std::getline(input_file, line)) {
-        cout << "***Error*** Inout file appears to be empty" << endl;
-        return false;
-    }
-    if (line != expected_header) 
-        cout << "***Warning*** First line is not expected header: " << expected_header << endl;
-
-    // Read data, line by line and create dictionary<DateTime, Tick>
-    char* next_token = nullptr;
-    tm datetime_tm;
-    while (std::getline(input_file, line))
-    {
-        // split line into fields
-        std::vector<string> fields = split(line, ",");
-
-        // convert date and time fields to tm
-        bool rc = DateTimeStringsToTM(line, fields[0], fields[1], datetime_tm);
-        // todo: deal with possible duplicate date/time
-        bars[datetime] = bar;
-    }
-
-    // Close files
-    input_file.close();
-    output_file.close();
-    return true;
-}
-
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio) {
-    bool directorySpecified = false;
-    bool intervalIsSpecified = false;
-    bool ratioIsSpecified = false;
     for (int i = 1; i < argc; i += 2) {
         const string parm(argv[i]);
         if (parm == "-d" || parm == "--directory") {
+#if 0
             if (directorySpecified)
             {
                 cout << "***Error*** directory specified more than once." << endl;
                 return false;
             }
             directorySpecified = true;
+#endif
             if (i + 1 < argc) {
                 string dirname{ argv[i + 1] };
                 cout << "directory = " << dirname << endl;
@@ -142,13 +93,14 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
             }
         }
         else if (parm == "-i" || parm == "--interval") {
+#if 0
             if (intervalIsSpecified)
             {
                 cout << "***Error*** interval specified more than once." << endl;
                 return false;
             }
             intervalIsSpecified = true;
-            
+#endif            
             if (i + 1 < argc) {
                 if (strlen(argv[i + 1]) != 1 || (*argv[i + 1] != 'd' && *argv[i + 1] != 'w')) {
                     cout << "***Error*** Invalid interval. Must be d or w" << endl;
@@ -162,16 +114,17 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
             }
         }
         else if (parm == "-r" || parm == "--ratio") {
-            if (ratioIsSpecified)
+#if 0
+            if (rIsSpecified)
             {
                 cout << "***Error*** ratio specified more than once." << endl;
                 return false;
             }
-            ratioIsSpecified = true;
-
+            rIsSpecified = true;
+#endif
             if (i + 1 < argc) {
                 char* next_token = nullptr;
-                const char* ctoken = strtok_s((char*)argv[i + 1] , ":", &next_token);
+                const char* ctoken = strtok_s((char*)argv[i + 1], ":", &next_token);
                 while (ctoken != nullptr) {
                     // convert token to integer
                     string token{ ctoken };
@@ -202,37 +155,58 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     return true;
 }
 
-bool DateTimeStringsToTM(string& line, string& date, string& time, tm& datetime_tm) {
-    std::vector<string> dateFields = split(date, "/");
-    if (dateFields.size() != 3) {
-        cout << "***Error*** Invalid date in line: " << line << endl;
+bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
+    struct Bar {
+        string open;
+        string high;
+        string low;
+        string close;
+        string up;
+        string down;
+    };
+
+    Bar bar;
+    time_t t;
+    std::map<std::time_t, Bar> bars;
+    string line;
+
+    // read header; 
+    const string expected_header{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
+    if (!std::getline(input_file, line)) {
+        cout << "***Error*** Inout file appears to be empty" << endl;
         return false;
     }
-    for (string s : dateFields) {
-        if (s.find_first_not_of("0123456789") != string::npos) {
-            cout << "***Error*** Invalid date in line: " << line << endl;
-            return false;
-        }
-    }
-    datetime_tm.tm_mon = atoi(dateFields[0].c_str()) - 1;
-    datetime_tm.tm_mday = atoi(dateFields[1].c_str());
-    datetime_tm.tm_year = atoi(dateFields[2].c_str()) - 1900;
+    if (line != expected_header) 
+        cout << "***Warning*** First line is not expected header: " << expected_header << endl;
 
-    std::vector<string> timeFields = split(date, ":");
-    if (timeFields.size() != 3) {
-        cout << "***Error*** Invalid time in line: " << line << endl;
+    // Read data, line by line and create dictionary<DateTime, Tick>
+    char* next_token = nullptr;
+    while (std::getline(input_file, line))
+    {
+        // split line into fields
+        std::vector<string> fields = split(line, ",");
+
+        // convert date and time fields to tm
+        bool rc = DateTimeStringsToTM(line, fields[0], fields[1], t);
+        // returns a std::pair, where if the second element is false, the datetime already exists
+        auto retval = bars.emplace(t, bar);
+        if (!retval.second)
+            cout << "***Error*** Duplicate date/time: " << line << endl;
+    }
+
+    // Close files
+    input_file.close();
+    output_file.close();
+    return true;
+}
+
+bool DateTimeStringsToTM(string& line, string& date, string& time, std::time_t& t) {
+    std::istringstream ss(date + ' ' + time);
+    std::tm datetime_tm;
+    ss >> std::get_time(&datetime_tm, "%m/%d/%Y %t");
+    if (ss.fail())
         return false;
-    }
-    for (string s : timeFields) {
-        if (s.find_first_not_of("0123456789") != string::npos) {
-            cout << "***Error*** Invalid time in line: " << line << endl;
-            return false;
-        }
-    }
-    datetime_tm.tm_hour = atoi(timeFields[0].c_str());
-    datetime_tm.tm_min = atoi(timeFields[1].c_str());
-    datetime_tm.tm_sec = atoi(timeFields[2].c_str());
-
+    t = std::mktime(&datetime_tm);
     return true;
 }
 
