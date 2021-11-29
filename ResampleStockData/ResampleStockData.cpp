@@ -15,6 +15,7 @@ using TimePoint = std::chrono::time_point<Clock>;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
+tm ConvertStringsToTM(string date, string time);
 
 int main(int argc, const char* argv[])
 {
@@ -75,7 +76,10 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
         string up;
         string down;
     };
-    std::map<TimePoint, Bar> bars;
+
+    tm datetime;
+    Bar bar;
+    std::map<tm, Bar> bars;
 
     string line;
     float val;
@@ -97,6 +101,14 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
         std::vector<string> fields = split(line, ",");
 
         // convert date and time fields to TimePoint
+        datetime.tm_year = year - 1900;
+        datetime.tm_mon = month - 1;
+        datetime.tm_mday = day;
+        datetime.tm_hour = hour;
+        datetime.tm_min = minute;
+        datetime.tm_sec = second;
+
+        bars[datetime] = bar;
     }
 
     // Close files
@@ -192,6 +204,12 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     }
 
     return true;
+}
+
+tm ConvertStringsToTM(string date, string time) {
+    tm datetime;
+
+    return datetime;
 }
 
 // poor man's string split function
