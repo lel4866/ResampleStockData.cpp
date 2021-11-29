@@ -12,7 +12,7 @@ using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
-bool DateTimeStringsToTM(string& line, string& date, string& time, std::time_t& t);
+bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t);
 std::vector<string> split(string line, const char* delimiter);
 
 int main(int argc, const char* argv[])
@@ -187,7 +187,7 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
         std::vector<string> fields = split(line, ",");
 
         // convert date and time fields to tm
-        bool rc = DateTimeStringsToTM(line, fields[0], fields[1], t);
+        bool rc = DateTimeStringsToTime_t(line, fields[0], fields[1], t);
         // returns a std::pair, where if the second element is false, the datetime already exists
         auto retval = bars.emplace(t, bar);
         if (!retval.second)
@@ -200,7 +200,7 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
     return true;
 }
 
-bool DateTimeStringsToTM(string& line, string& date, string& time, std::time_t& t) {
+bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t) {
     std::istringstream ss(date + ' ' + time);
     std::tm datetime_tm;
     ss >> std::get_time(&datetime_tm, "%m/%d/%Y %t");
