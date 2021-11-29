@@ -15,7 +15,7 @@ using TimePoint = std::chrono::time_point<Clock>;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
-tm ConvertStringsToTM(string date, string time);
+bool DateTimeStringsToTM(string& line, string& date, string& time, tm& datetime_tm);
 
 int main(int argc, const char* argv[])
 {
@@ -95,19 +95,15 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
 
     // Read data, line by line and create dictionary<DateTime, Tick>
     char* next_token = nullptr;
+    tm datetime_tm;
     while (std::getline(input_file, line))
     {
         // split line into fields
         std::vector<string> fields = split(line, ",");
 
-        // convert date and time fields to TimePoint
-        datetime.tm_year = year - 1900;
-        datetime.tm_mon = month - 1;
-        datetime.tm_mday = day;
-        datetime.tm_hour = hour;
-        datetime.tm_min = minute;
-        datetime.tm_sec = second;
-
+        // convert date and time fields to tm
+        bool rc = DateTimeStringsToTM(line, fields[0], fields[1], datetime_tm);
+        // todo: deal with possible duplicate date/time
         bars[datetime] = bar;
     }
 
@@ -206,10 +202,38 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     return true;
 }
 
-tm ConvertStringsToTM(string date, string time) {
-    tm datetime;
+bool DateTimeStringsToTM(string& line, string& date, string& time, tm& datetime_tm) {
+    std::vector<string> dateFields = split(date, "/");
+    if (dateFields.size() != 3) {
+        cout << "***Error*** Invalid date in line: " << line << endl;
+        return false;
+    }
+    for (string s : dateFields) {
+        if (s.find_first_not_of("0123456789") != string::npos) {
+            cout << "***Error*** Invalid date in line: " << line << endl;
+            return false;
+        }
+    }
+    datetime_tm.tm_mon = atoi(dateFields[0].c_str()) - 1;
+    datetime_tm.tm_mday = atoi(dateFields[1].c_str());
+    datetime_tm.tm_year = atoi(dateFields[2].c_str()) - 1900;
 
-    return datetime;
+    std::vector<string> timeFields = split(date, ":");
+    if (timeFields.size() != 3) {
+        cout << "***Error*** Invalid time in line: " << line << endl;
+        return false;
+    }
+    for (string s : timeFields) {
+        if (s.find_first_not_of("0123456789") != string::npos) {
+            cout << "***Error*** Invalid time in line: " << line << endl;
+            return false;
+        }
+    }
+    datetime_tm.tm_hour = atoi(timeFields[0].c_str());
+    datetime_tm.tm_min = atoi(timeFields[1].c_str());
+    datetime_tm.tm_sec = atoi(timeFields[2].c_str());
+
+    return true;
 }
 
 // poor man's string split function
