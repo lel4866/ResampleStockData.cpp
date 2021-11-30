@@ -1,3 +1,4 @@
+//
 // ResampleStockData.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
@@ -14,7 +15,9 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
 bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
 bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t);
 std::vector<string> split(string line, const char* delimiter);
-int zellersAlgorithm(int day, int month, int year);
+int dayOfWeek(int day, int month, int year);
+int weekNumber(time_t startDate, time_t curDate);
+constexpr long seconds_in_day = 24 * 24 * 60;
 
 int main(int argc, const char* argv[])
 {
@@ -168,7 +171,7 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
     // read header; 
     const string expected_header{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
     if (!std::getline(input_file, line)) {
-        cout << "***Error*** Inout file appears to be empty" << endl;
+        cout << "***Error*** Inout file is empty" << endl;
         return false;
     }
     if (line != expected_header) 
@@ -201,11 +204,51 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
         if (!retval.second)
             cout << "***Error*** Duplicate date/time: " << line << endl;
     }
-
-    // now go through ration vector and place entries from main map into one of three vectors
-    for (int i = 1; i < 3; i++) {
-        int date_count = ratio[i];
+    if (bars.empty()) {
+        cout << "***Error*** Inout file is empty" << endl;
+        return false;
     }
+
+    // now go through ratio vector and place entries from main map into one of three vectors
+    // each vector contains a vector of ticks for a whole day
+    std::vector<std::vector<string>> training_set;
+    std::vector<std::vector<string>> validation_set;
+    std::vector<std::vector<string>> test_set;
+    std::vector<std::vector<string>>* pSelectedSet{ nullptr };
+    int sample_index = 0;
+   
+    auto bar_iterator = bars.begin();
+    long day;
+    long current_day = (*bar_iterator).first / seconds_in_day;
+    while (sample_index < bars.size()) {
+        for (int i = 0; i < 3; i++) {
+            switch (i) {
+                case 0: pSelectedSet = &training_set; break;
+                case 1: pSelectedSet = &validation_set; break;
+                case 2: pSelectedSet = &test_set; break;
+            }
+            // place ratio[i] # of days into selected vector
+            for (int j = 0; j < ratio[i]; j++) {
+                std::vector<string>& dayVector = pSelectedSet->emplace_back();
+                // move ticks to dayVector so long as the ticks day is the same as current_day
+                while (bar_iterator != bars.end()) {
+                    long day = (*bar_iterator).first / seconds_in_day;
+                    const string& bar = (*bar_iterator++).second;
+                    if (day != current_day) {
+                        current_day = day;
+                        if (dayVector.empty())
+                            continue;
+                        break;
+                    }
+                    dayVector.emplace_back(std::move(bar));
+                }
+                pSelectedSet->emplace_back(std::move(bars[sample_index]));
+                if (++sample_index == bars.size())
+                    goto end; // break out of outer loop
+            }
+        }
+    }
+end:
 
     // write output file
     for (auto& kvp : bars) {
@@ -252,17 +295,24 @@ std::vector<string> split(string line, const char* delimiter) {
     return fields;
 }
 
-// to find day of week; 0 = Saturday
-int zellersAlgorithm(int day, int month, int year) {
+// uses Zeller's algorithm to find day of week; 0 = Saturday
+int dayOfWeek(int day, int month, int year) {
     int mon;
     if (month > 2)
         mon = month; //for march to december month code is same as month
     else {
-        mon = (12 + month); //for Jan and Feb, month code will be 13 and 14
-        year--; //decrease year for month Jan and Feb
+        mon = (12 + month); // for Jan and Feb, month code will be 13 and 14
+        year--; // decrease year for Jan and Feb
     }
-    int y = year % 100; //last two digit
-    int c = year / 100; //first two digit
-    int w = (day + (int)floor((13 * (mon + 1)) / 5) + y + (int)floor(y / 4) + (int)floor(c / 4) + (5 * c));
+    int y = year % 100; // last two digits
+    int c = year / 100; // first two digits
+    int w = (day + ((13 * (mon + 1)) / 5) + y + (y / 4) + (c / 4) + (5 * c));
     return w % 7;
+}
+
+// returns week number relative to week number of start date
+int weekNumber(time_t startDate, time_t curDate) {
+    std::tm startDate_tm;
+    localtime_s(&startDate_tm, &startDate);
+    return 0;
 }
