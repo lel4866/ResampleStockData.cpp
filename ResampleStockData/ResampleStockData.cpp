@@ -11,9 +11,10 @@ using std::endl;
 using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
-bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file);
+bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
 bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t);
 std::vector<string> split(string line, const char* delimiter);
+int zellersAlgorithm(int day, int month, int year);
 
 int main(int argc, const char* argv[])
 {
@@ -56,7 +57,7 @@ int main(int argc, const char* argv[])
 
             // now process input file to output file
             cout << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
-            if (!ProcessCSVFile(csv_file, resampled_csv_file))
+            if (!ProcessCSVFile(ratio, csv_file, resampled_csv_file))
                 continue;
         }
     }
@@ -159,7 +160,7 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     return true;
 }
 
-bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
+bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file) {
     time_t t;
     string line;
     std::map<std::time_t, string> bars;
@@ -199,6 +200,11 @@ bool ProcessCSVFile(std::ifstream& input_file, std::ofstream& output_file) {
         auto retval = bars.emplace(t, oss.str());
         if (!retval.second)
             cout << "***Error*** Duplicate date/time: " << line << endl;
+    }
+
+    // now go through ration vector and place entries from main map into one of three vectors
+    for (int i = 1; i < 3; i++) {
+        int date_count = ratio[i];
     }
 
     // write output file
@@ -244,4 +250,19 @@ std::vector<string> split(string line, const char* delimiter) {
     }
 
     return fields;
+}
+
+// to find day of week; 0 = Saturday
+int zellersAlgorithm(int day, int month, int year) {
+    int mon;
+    if (month > 2)
+        mon = month; //for march to december month code is same as month
+    else {
+        mon = (12 + month); //for Jan and Feb, month code will be 13 and 14
+        year--; //decrease year for month Jan and Feb
+    }
+    int y = year % 100; //last two digit
+    int c = year / 100; //first two digit
+    int w = (day + (int)floor((13 * (mon + 1)) / 5) + y + (int)floor(y / 4) + (int)floor(c / 4) + (5 * c));
+    return w % 7;
 }
