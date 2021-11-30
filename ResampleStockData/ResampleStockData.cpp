@@ -17,7 +17,9 @@ bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time
 std::vector<string> split(string line, const char* delimiter);
 int dayOfWeek(int day, int month, int year);
 int weekNumber(time_t startDate, time_t curDate);
-constexpr long seconds_in_day = 24 * 24 * 60;
+time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t);
+
+constexpr int seconds_in_day = 24 * 24 * 60;
 
 int main(int argc, const char* argv[])
 {
@@ -215,56 +217,66 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
     std::vector<std::vector<string>> validation_set;
     std::vector<std::vector<string>> test_set;
     std::vector<std::vector<string>>* pSelectedSet{ nullptr };
-    int sample_index = 0;
    
     auto bar_iterator = bars.begin();
-    long day;
-    long current_day = (*bar_iterator).first / seconds_in_day;
-    while (sample_index < bars.size()) {
-        for (int i = 0; i < 3; i++) {
-            switch (i) {
-                case 0: pSelectedSet = &training_set; break;
-                case 1: pSelectedSet = &validation_set; break;
-                case 2: pSelectedSet = &test_set; break;
-            }
-            // place ratio[i] # of days into selected vector
-            for (int j = 0; j < ratio[i]; j++) {
-                std::vector<string>& dayVector = pSelectedSet->emplace_back();
-                // move ticks to dayVector so long as the ticks day is the same as current_day
-                while (bar_iterator != bars.end()) {
-                    long day = (*bar_iterator).first / seconds_in_day;
-                    const string& bar = (*bar_iterator++).second;
-                    if (day != current_day) {
-                        current_day = day;
-                        if (dayVector.empty())
-                            continue;
-                        break;
-                    }
-                    dayVector.emplace_back(std::move(bar));
+    time_t initial_time_t = (*bar_iterator).first;
+    time_t cur_time_t = initial_time_t; // save first day for when we start writing the output files
+    long current_day = (long)cur_time_t / seconds_in_day;
+    for (int i = 0; i < 3; i++) {
+        switch (i) {
+            case 0: pSelectedSet = &training_set; break;
+            case 1: pSelectedSet = &validation_set; break;
+            case 2: pSelectedSet = &test_set; break;
+        }
+
+        // place ratio[i] # of days into selected vector
+        for (int j = 0; j < ratio[i]; j++) {
+            std::vector<string> dayVector;
+            // move ticks to dayVector so long as the ticks are in the same day as current_day
+            while (bar_iterator != bars.end()) {
+                long day = (long)((*bar_iterator).first / seconds_in_day);
+                string& bar = (*bar_iterator++).second; // note: also increments bar_iterator
+                if (day != current_day) {
+                    if (!dayVector.empty())
+                        pSelectedSet->emplace_back(std::move(dayVector));
+                    current_day = day; // current_day now is new day
+                    break;
                 }
-                pSelectedSet->emplace_back(std::move(bars[sample_index]));
-                if (++sample_index == bars.size())
-                    goto end; // break out of outer loop
+                dayVector.emplace_back(std::move(bar));
             }
+            if (bar_iterator == bars.end())
+                goto end; // no more ticks...break out of outer loop
         }
     }
 end:
 
     // write output file
-    for (auto& kvp : bars) {
-        std::stringstream xx; // for debugging
-        struct tm timeinfo;
-        localtime_s(&timeinfo, &kvp.first);
-        char buffer[32];
-        std::strftime(buffer, 32, "%m/%d/%Y,%H:%M:%S", &timeinfo);
-        xx << buffer << kvp.second; // for debugging
-        output_file << buffer << kvp.second;
-    }
+    time_t next_day_time_t = writeOutputFile(output_file, training_set, initial_time_t);
+    next_day_time_t = writeOutputFile(output_file, validation_set, next_day_time_t);
+    writeOutputFile(output_file, test_set, next_day_time_t);
 
     // Close files
     input_file.close();
     output_file.close();
     return true;
+}
+
+time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t day_time_t) {
+    for (std::vector<string> day : days) {
+        for (string& bar : day) {
+            std::stringstream xx; // for debugging
+            struct tm timeinfo;
+            localtime_s(&timeinfo, &day_time_t);  // convert time_t in kvp.first to tm in timeinfo
+            char buffer[32];
+            //strftime(buffer, 80, "Now it's %I:%M%p.", timeinfo);
+            std::strftime(buffer, 32, "%m/%d/%Y,%H:%M:%S", &timeinfo); // mm/dd/yyyy,HH:MM:SS
+            xx << buffer << bar; // for debugging
+            output_file << buffer << bar << endl;
+        }
+        day_time_t += seconds_in_day;
+    }
+
+    return day_time_t;
 }
 
 bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t) {
