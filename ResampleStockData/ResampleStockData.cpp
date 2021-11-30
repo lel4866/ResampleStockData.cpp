@@ -209,7 +209,7 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
         return false;
     }
 
-    // now go through ratio vector and place entries from main map into one of three vectors
+    // now place entries from main map into one of three vectors (training, validation, test)
     // each vector contains a vector of ticks for a whole day
     std::vector<std::vector<string>> training_set;
     std::vector<std::vector<string>> validation_set;
