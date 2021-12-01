@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <set>
 
 using std::cout;
 using std::endl;
@@ -41,22 +42,23 @@ int main(int argc, const char* argv[])
         {
             if (entry.path().extension().string() != ".csv")
                 continue;
+            const string input_filename = entry.path().filename().string();
             file_count++;
 
             // open input file
             std::ifstream csv_file(entry.path());
-            const string input_filename = entry.path().filename().string();
             // Make sure the file is open
             if (!csv_file.is_open() || !csv_file.good()) {
-                cout << "***Error*** Unable to open '" << input_filename << "' for reading." << endl;
+                cout << "***Error*** Unable to open '" << entry.path() << "' for reading." << endl;
                 continue;
             }
 
             // create output file
-            string output_filename = input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
-            std::ofstream resampled_csv_file(output_filename);
+            const string output_filename = input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
+            string full_output_filename = entry.path().parent_path().string() + "\\" + input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
+            std::ofstream resampled_csv_file(full_output_filename);
             if (!resampled_csv_file.is_open() || !resampled_csv_file.good()) {
-                cout << "***Error*** Unable to open '" << output_filename << "' for writing." << endl;
+                cout << "***Error*** Unable to open '" << full_output_filename << "' for writing." << endl;
                 continue;
             }
 
