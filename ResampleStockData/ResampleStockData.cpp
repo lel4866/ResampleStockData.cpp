@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <cassert>
 
 using std::cout;
 using std::endl;
@@ -13,13 +14,13 @@ using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
-bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t);
+bool DateStringsToTime_t(string& line, string& date, std::time_t& t);
 std::vector<string> split(string line, const char* delimiter);
 int dayOfWeek(int day, int month, int year);
 int weekNumber(time_t startDate, time_t curDate);
-time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t);
+time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t, const string& dataset_name);
 
-constexpr int seconds_in_day = 24 * 24 * 60;
+constexpr int seconds_in_day = 24 * 60 * 60;
 
 int main(int argc, const char* argv[])
 {
@@ -67,7 +68,7 @@ int main(int argc, const char* argv[])
             std::ofstream resampled_csv_file(full_output_filename);
             // if we can't create an output file, we quit, because we probably can't create any other output files either
             if (!resampled_csv_file.is_open() || !resampled_csv_file.good()) {
-                cout << "***Error*** Unable to create '" << full_output_filename << "' for writing." << endl;
+                cout << "***Error*** Unable to create '" << full_output_filename << "' for writing. It might be locked by another program." << endl;
                 return -1;
             }
 
@@ -180,7 +181,7 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
 bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file) {
     time_t t;
     string line;
-    std::map<std::time_t, string> bars;
+    std::map<std::time_t, std::vector<string>> bars; // time_t is the date, the vector contains a string for each time in the day
 
     // read header; 
     const string expected_header{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
@@ -193,6 +194,10 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
 
     // Read data, line by line and create dictionary<DateTime, Tick>
     char* next_token = nullptr;
+    time_t cur_date_time_t = -1;
+    time_t initial_time_t = -1;
+    std::vector<string> bars_for_day;
+    int num_days = 0;
     while (std::getline(input_file, line))
     {
         // split line into fields
@@ -202,24 +207,54 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
             return false;
         }
 
-        // convert date and time fields to tm; if time is just xx:xx, add :00
+        // convert date field to time_t;
+        if (!DateStringsToTime_t(line, fields[0], t))
+            return false;
+        if (initial_time_t == -1)
+            initial_time_t = t;
+
+        // if new day, save previous day in bars map and clear bars_for_day vector so it can be used for next day
+        if (t != cur_date_time_t) {
+            if (!bars_for_day.empty()) {
+                auto retval = bars.emplace(cur_date_time_t, std::move(bars_for_day));
+                num_days++;
+                if (cur_date_time_t == 1637902800) {
+                    int xxx = 1;
+                }
+                bars_for_day.clear(); // resurrect moved bars_for_day
+                if (!retval.second)
+                    cout << "***Error*** Duplicate date: " << line << endl;
+            }
+            cur_date_time_t = t;
+        }
+
+        //
+        // now add this bar to current bars_for_day vector
+        //
+
+        // add seconds to time field if it doesn't exist
         if (fields[1].size() == 5)
             fields[1] += ":00";
-        if (!DateTimeStringsToTime_t(line, fields[0], fields[1], t))
-            return false;
 
-        // now save open, high, low, close,up, down fields in separate string
+        // create bar string without date field
         std::ostringstream oss;
-        for (int i = 3; i < 8; i++)
+        for (int i = 1; i < 8; i++)
             oss << ',' << fields[i];
 
-        // returns a std::pair, where if the second element is false, the datetime already exists
-        auto retval = bars.emplace(t, oss.str());
-        if (!retval.second)
-            cout << "***Error*** Duplicate date/time: " << line << endl;
+        // append bar string to bars_for_day vector
+        bars_for_day.emplace_back(oss.str());
     }
+
+    // save last day
+    if (!bars_for_day.empty()) {
+        auto retval = bars.emplace(cur_date_time_t, std::move(bars_for_day));
+        if (!retval.second)
+            cout << "***Error*** Duplicate date: " << line << endl;
+    }
+
+    // check for no valid days
     if (bars.empty()) {
-        cout << "***Error*** Inout file is empty" << endl;
+        cout << "***Error*** Input file is empty" << endl;
         return false;
     }
 
@@ -230,46 +265,30 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
     std::vector<std::vector<string>> test_set;
     std::vector<std::vector<string>>* pSelectedSet{ nullptr };
    
-    int bar_count = 0; // for debugging
-    auto bar_iterator = bars.begin();
-    time_t initial_time_t = (*bar_iterator).first;
-    time_t cur_time_t = initial_time_t; // save first day for when we start writing the output files
-    long current_day = (long)cur_time_t / seconds_in_day;
+    auto day_iterator = bars.begin();
     while (true) {
         for (int i = 0; i < 3; i++) {
             switch (i) {
-            case 0: pSelectedSet = &training_set; break;
-            case 1: pSelectedSet = &validation_set; break;
-            case 2: pSelectedSet = &test_set; break;
+                case 0: pSelectedSet = &training_set; break;
+                case 1: pSelectedSet = &validation_set; break;
+                case 2: pSelectedSet = &test_set; break;
             }
 
             // place ratio[i] # of days into selected vector
             for (int j = 0; j < ratio[i]; j++) {
-                std::vector<string> dayVector;
-                // move ticks to dayVector so long as the ticks are in the same day as current_day
-                while (bar_iterator != bars.end()) {
-                    long day = (long)((*bar_iterator).first / seconds_in_day);
-                    string& bar = (*bar_iterator++).second; // note: also increments bar_iterator
-                    if (day != current_day) {
-                        if (!dayVector.empty())
-                            pSelectedSet->emplace_back(std::move(dayVector));
-                        current_day = day; // current_day now is new day
-                        break;
-                    }
-                    dayVector.emplace_back(std::move(bar));
-                    bar_count++; // for debugging
-                }
-                if (bar_iterator == bars.end())
-                    goto end; // no more ticks...break out of outer loop
+                if (day_iterator == bars.end())
+                    goto end;
+                std::vector<string>& day = (*day_iterator++).second;
+                pSelectedSet->emplace_back(std::move(day)); // we will never ever try and use this entry in bars map
             }
         }
     }
 end:
 
     // write output file
-    time_t next_day_time_t = writeOutputFile(output_file, training_set, initial_time_t);
-    next_day_time_t = writeOutputFile(output_file, validation_set, next_day_time_t);
-    writeOutputFile(output_file, test_set, next_day_time_t);
+    time_t next_day_time_t = writeOutputFile(output_file, training_set, initial_time_t, "training");
+    next_day_time_t = writeOutputFile(output_file, validation_set, next_day_time_t, "validation");
+    writeOutputFile(output_file, test_set, next_day_time_t, "test");
 
     // Close files
     input_file.close();
@@ -277,33 +296,46 @@ end:
     return true;
 }
 
-time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t day_time_t) {
+time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t day_time_t, const string& dataset_name) {
+    struct tm timeinfo;
+    char init_time_buffer[32];
+    char buffer[32];
+    time_t initial_day_time_t = day_time_t;
+    localtime_s(&timeinfo, &day_time_t);  // convert time_t in kvp.first to tm in timeinfo
+    std::strftime(init_time_buffer, 32, "%m/%d/%Y", &timeinfo); // mm/dd/yyyy,
+
     for (std::vector<string> day : days) {
+        assert(!day.empty());
         for (string& bar : day) {
-            std::stringstream xx; // for debugging
-            struct tm timeinfo;
             localtime_s(&timeinfo, &day_time_t);  // convert time_t in kvp.first to tm in timeinfo
-            char buffer[32];
-            //strftime(buffer, 80, "Now it's %I:%M%p.", timeinfo);
-            std::strftime(buffer, 32, "%m/%d/%Y,%H:%M:%S", &timeinfo); // mm/dd/yyyy,HH:MM:SS
-            xx << buffer << bar; // for debugging
+            std::strftime(buffer, 32, "%m/%d/%Y,", &timeinfo); // mm/dd/yyyy,
             output_file << buffer << bar << endl;
         }
         day_time_t += seconds_in_day;
     }
 
+    time_t last_time_t = day_time_t - seconds_in_day;
+    localtime_s(&timeinfo, &last_time_t);  // convert time_t in kvp.first to tm in timeinfo
+    std::strftime(buffer, 32, "%m/%d/%Y", &timeinfo); // mm/dd/yyyy,
+    cout << "Writing " << dataset_name << " dataset from " << init_time_buffer << "  to " << buffer << endl;
     return day_time_t;
 }
 
-bool DateTimeStringsToTime_t(string& line, string& date, string& time, std::time_t& t) {
-    std::istringstream ss(date + ' ' + time);
+bool DateStringsToTime_t(string& line, string& date, std::time_t& t) {
     std::tm datetime_tm;
+    std::istringstream ss(date + " 00:00:00");
     ss >> std::get_time(&datetime_tm, "%m/%d/%Y %H:%M:%S");
     if (ss.fail()) {
-        cout << "***Error*** Invalid date or time: " << line << endl;
+        cout << "***Error*** Invalid date: " << line << endl;
         return false;
     }
+
     t = std::mktime(&datetime_tm);
+    if (t == -1) {
+        cout << "***Error*** Invalid date: " << line << endl;
+        return false;
+    }
+
     return true;
 }
 
