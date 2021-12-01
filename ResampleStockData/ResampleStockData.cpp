@@ -6,7 +6,6 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
-#include <set>
 
 using std::cout;
 using std::endl;
@@ -53,13 +52,23 @@ int main(int argc, const char* argv[])
                 continue;
             }
 
-            // create output file
+            // if necessary, create output directory ResampledData, then create output file
+            std::filesystem::path output_directory = entry.path().parent_path().concat("/ResampledData/");
+            if (!std::filesystem::exists(output_directory)) {
+                // create output directory
+                if (!std::filesystem::create_directory(output_directory)) {
+                    cout << "***Error*** Unable to create output directory '" << output_directory << "'" << endl;
+                    return -1;;
+                }
+                cout << "Created output directory '" << output_directory << "'" << endl;
+            }
             const string output_filename = input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
-            string full_output_filename = entry.path().parent_path().string() + "\\" + input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
+            string full_output_filename = entry.path().parent_path().string() + "/ResampledData/" + input_filename.substr(0, input_filename.size() - 4) + "_resampled.csv";
             std::ofstream resampled_csv_file(full_output_filename);
+            // if we can't create an output file, we quit, because we probably can't create any other output files either
             if (!resampled_csv_file.is_open() || !resampled_csv_file.good()) {
-                cout << "***Error*** Unable to open '" << full_output_filename << "' for writing." << endl;
-                continue;
+                cout << "***Error*** Unable to create '" << full_output_filename << "' for writing." << endl;
+                return -1;
             }
 
             // now process input file to output file
@@ -93,13 +102,14 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
 
             if (i + 1 < argc) {
                 string dirname{ argv[i + 1] };
-                cout << "directory = " << dirname << endl;
+                cout << "input directory = " << dirname << endl;
                 directory = std::filesystem::path(dirname);
                 std::filesystem::path folder(dirname);
                 if (!std::filesystem::is_directory(folder)) {
                     cout << "***Error*** Specified directory does not exist or is not actually a directory." << endl;
                     return false;
                 }
+                cout << "output directory = " << dirname << "/ResampledData" << endl;
             }
             else {
                 cout << "***Error*** No directory specified after -d" << endl;
