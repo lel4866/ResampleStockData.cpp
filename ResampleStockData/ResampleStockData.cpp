@@ -218,34 +218,38 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
     std::vector<std::vector<string>> test_set;
     std::vector<std::vector<string>>* pSelectedSet{ nullptr };
    
+    int bar_count = 0; // for debugging
     auto bar_iterator = bars.begin();
     time_t initial_time_t = (*bar_iterator).first;
     time_t cur_time_t = initial_time_t; // save first day for when we start writing the output files
     long current_day = (long)cur_time_t / seconds_in_day;
-    for (int i = 0; i < 3; i++) {
-        switch (i) {
+    while (true) {
+        for (int i = 0; i < 3; i++) {
+            switch (i) {
             case 0: pSelectedSet = &training_set; break;
             case 1: pSelectedSet = &validation_set; break;
             case 2: pSelectedSet = &test_set; break;
-        }
-
-        // place ratio[i] # of days into selected vector
-        for (int j = 0; j < ratio[i]; j++) {
-            std::vector<string> dayVector;
-            // move ticks to dayVector so long as the ticks are in the same day as current_day
-            while (bar_iterator != bars.end()) {
-                long day = (long)((*bar_iterator).first / seconds_in_day);
-                string& bar = (*bar_iterator++).second; // note: also increments bar_iterator
-                if (day != current_day) {
-                    if (!dayVector.empty())
-                        pSelectedSet->emplace_back(std::move(dayVector));
-                    current_day = day; // current_day now is new day
-                    break;
-                }
-                dayVector.emplace_back(std::move(bar));
             }
-            if (bar_iterator == bars.end())
-                goto end; // no more ticks...break out of outer loop
+
+            // place ratio[i] # of days into selected vector
+            for (int j = 0; j < ratio[i]; j++) {
+                std::vector<string> dayVector;
+                // move ticks to dayVector so long as the ticks are in the same day as current_day
+                while (bar_iterator != bars.end()) {
+                    long day = (long)((*bar_iterator).first / seconds_in_day);
+                    string& bar = (*bar_iterator++).second; // note: also increments bar_iterator
+                    if (day != current_day) {
+                        if (!dayVector.empty())
+                            pSelectedSet->emplace_back(std::move(dayVector));
+                        current_day = day; // current_day now is new day
+                        break;
+                    }
+                    dayVector.emplace_back(std::move(bar));
+                    bar_count++; // for debugging
+                }
+                if (bar_iterator == bars.end())
+                    goto end; // no more ticks...break out of outer loop
+            }
         }
     }
 end:
