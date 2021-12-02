@@ -13,7 +13,7 @@ using std::endl;
 using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio, float& min_value);
-bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
+bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file);
 bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t);
 std::vector<string> split(const string& line, const char* delimiter);
 int dayOfWeek(int day, int month, int year);
@@ -77,7 +77,7 @@ int main(int argc, const char* argv[])
 
             // now process input file to output file
             cout << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
-            if (!ProcessCSVFile(ratio, csv_file, resampled_csv_file))
+            if (!ProcessCSVFile(ratio, min_value, csv_file, resampled_csv_file))
                 continue;
         }
     }
@@ -214,7 +214,7 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     return true;
 }
 
-bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file) {
+bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file) {
     time_t t;
     string line;
     std::map<std::time_t, std::vector<string>> bars; // time_t is the date, the vector contains a string for each time in the day
@@ -271,6 +271,18 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
         // add seconds to time field if it doesn't exist
         if (fields[1].size() == 5)
             fields[1] += ":00";
+
+        // check open, high, low, close for minimum value
+        bool min_found = false;
+        for (int i = 2; i < 6; i++) {
+            if (atof(fields[i].c_str()) < min_value) {
+                bars_for_day.clear(); // throw away all prior bars for day;
+                min_found = true;
+                break;
+            }
+        }
+        if (min_found)
+            continue;
 
         // create bar string without date field
         std::ostringstream oss;
