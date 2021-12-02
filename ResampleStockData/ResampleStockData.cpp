@@ -43,7 +43,7 @@ int main(int argc, const char* argv[])
         const auto full_name = entry.path().string();
         if (entry.is_regular_file())
         {
-            if (entry.path().extension().string() != ".csv")
+            if (!full_name.ends_with(".csv"))
                 continue;
             const string input_filename = entry.path().filename().string();
             file_count++;
@@ -76,7 +76,7 @@ int main(int argc, const char* argv[])
             }
 
             // now process input file to output file
-            cout << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
+            cout << endl << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
             if (!ProcessCSVFile(ratio, min_value, csv_file, resampled_csv_file))
                 continue;
         }
@@ -220,13 +220,18 @@ bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& inpu
     std::map<std::time_t, std::vector<string>> bars; // time_t is the date, the vector contains a string for each time in the day
 
     // read header; 
-    const string expected_header{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
+    const string expected_header1{"\"Date\",\"Time\",\"Open\",\"High\",\"Low\",\"Close\",\"Up\",\"Down\"" };
+    const string expected_header2{ "Date,Time,Open,High,Low,Close,Up,Down" };
+
     if (!std::getline(input_file, line)) {
         cout << "***Error*** Inout file is empty" << endl;
         return false;
     }
-    if (line != expected_header) 
-        cout << "***Warning*** First line is not expected header: " << expected_header << endl;
+    if (line != expected_header1 && line != expected_header2) 
+        cout << "***Warning*** First line is not expected header:" << expected_header2 << endl;
+
+    // write header to output file
+    output_file << line << endl;
 
     // Read data, line by line and create dictionary<DateTime, Tick>
     char* next_token = nullptr;
@@ -302,7 +307,7 @@ bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& inpu
 
     // check for no valid days
     if (bars.empty()) {
-        cout << "***Error*** Input file is empty" << endl;
+        cout << "***Error*** After filtering for minimum value, input file is empty" << endl;
         return false;
     }
 
@@ -355,8 +360,22 @@ bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& inpu
                 // put a whole weeks worth of days into selected vector
                 while ((day_iterator != bars.end()) && weekNumber(start_week_number, (*day_iterator).first) == cur_week) {
                     std::vector<string>& day = (*day_iterator++).second;
-                    pSelectedSet->emplace_back(std::move(day)); // we will never ever try and use this entry in bars map
+                    // because of std::move, we can never use this entry in bars map after this point in the code
+                    pSelectedSet->emplace_back(std::move(day));
                 }
+#if 0 // for debugging only...must remove for production
+                std::vector<string> day;
+                string week_marker = ",00:00:00,0,0,0,0,0,0,end of week " + std::to_string(cur_week);
+                switch (i) {
+                case 0: week_marker += " training set"; break;
+                case 1: week_marker += " validation set"; break;
+                case 2: week_marker += " test set"; break;
+                }
+
+                day.push_back(week_marker);
+                pSelectedSet->emplace_back(day);
+#endif
+
                 if (day_iterator == bars.end())
                     goto end;
             }
@@ -383,13 +402,13 @@ time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector
     char buffer[32];
     time_t initial_day_time_t = day_time_t;
     localtime_s(&timeinfo, &day_time_t);  // convert time_t in kvp.first to tm in timeinfo
-    std::strftime(init_time_buffer, 32, "%m/%d/%Y", &timeinfo); // mm/dd/yyyy,
+    std::strftime(init_time_buffer, 32, "%m/%d/%Y", &timeinfo); // mm/dd/yyyy
 
     for (std::vector<string> day : days) {
         assert(!day.empty());
         for (string& bar : day) {
             localtime_s(&timeinfo, &day_time_t);  // convert time_t in kvp.first to tm in timeinfo
-            std::strftime(buffer, 32, "%m/%d/%Y,", &timeinfo); // mm/dd/yyyy,
+            std::strftime(buffer, 32, "%m/%d/%Y", &timeinfo); // mm/dd/yyyy
             output_file << buffer << bar << endl;
         }
         day_time_t += seconds_in_day;
