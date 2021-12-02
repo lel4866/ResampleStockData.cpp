@@ -14,10 +14,12 @@ using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
 bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
-bool DateStringsToTime_t(string& line, string& date, std::time_t& t);
-std::vector<string> split(string line, const char* delimiter);
+bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t);
+std::vector<string> split(const string& line, const char* delimiter);
 int dayOfWeek(int day, int month, int year);
-int weekNumber(time_t startDate, time_t curDate);
+int weekNumber(int start_weel_number, time_t curDate);
+int weekNumber(time_t t);
+
 time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t, const string& dataset_name);
 
 constexpr int seconds_in_day = 24 * 60 * 60;
@@ -258,13 +260,17 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
         return false;
     }
 
+    //
+    // here's where the magic occurs. We split up the data into train, validate and test sets in the requested ratio
+    //
+
     // now place entries from main map into one of three vectors (training, validation, test)
     // each vector contains a vector of ticks for a whole day
     std::vector<std::vector<string>> training_set;
     std::vector<std::vector<string>> validation_set;
     std::vector<std::vector<string>> test_set;
     std::vector<std::vector<string>>* pSelectedSet{ nullptr };
-   
+#if 0   
     auto day_iterator = bars.begin();
     while (true) {
         for (int i = 0; i < 3; i++) {
@@ -283,6 +289,35 @@ bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofst
             }
         }
     }
+#endif
+
+#if 1   
+    auto day_iterator = bars.begin();
+    time_t start_day = (*day_iterator).first;
+    int start_week_number = weekNumber(start_day);
+    int cur_week = 0;
+    while (true) {
+        for (int i = 0; i < 3; i++) {
+            switch (i) {
+            case 0: pSelectedSet = &training_set; break;
+            case 1: pSelectedSet = &validation_set; break;
+            case 2: pSelectedSet = &test_set; break;
+            }
+
+            // place ratio[i] # of weeks into selected vector
+            for (int j = 0; j < ratio[i]; j++, cur_week++) {
+                // put a whole weeks worth of days into selected vector
+                while ((day_iterator != bars.end()) && weekNumber(start_week_number, (*day_iterator).first) == cur_week) {
+                    std::vector<string>& day = (*day_iterator++).second;
+                    pSelectedSet->emplace_back(std::move(day)); // we will never ever try and use this entry in bars map
+                }
+                if (day_iterator == bars.end())
+                    goto end;
+            }
+        }
+    }
+#endif
+
 end:
 
     // write output file
@@ -321,7 +356,8 @@ time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector
     return day_time_t;
 }
 
-bool DateStringsToTime_t(string& line, string& date, std::time_t& t) {
+// returns time_t corresponding to given date string
+bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t) {
     std::tm datetime_tm;
     std::istringstream ss(date + " 00:00:00");
     ss >> std::get_time(&datetime_tm, "%m/%d/%Y %H:%M:%S");
@@ -340,7 +376,7 @@ bool DateStringsToTime_t(string& line, string& date, std::time_t& t) {
 }
 
 // poor man's string split function
-std::vector<string> split(string line, const char* delimiter) {
+std::vector<string> split(const string& line, const char* delimiter) {
     std::vector<string> fields;
 
     char* next_token = nullptr;
@@ -370,9 +406,21 @@ int dayOfWeek(int day, int month, int year) {
     return w % 7;
 }
 
-// returns week number relative to week number of start date
-int weekNumber(time_t startDate, time_t curDate) {
-    std::tm startDate_tm;
-    localtime_s(&startDate_tm, &startDate);
-    return 0;
+// returns week number relative to week number of starting date
+// week begins on Sunday, ends on Saturday
+int weekNumber(int start_week_number, time_t curDate) {
+    return weekNumber(curDate) - start_week_number;
 }
+
+// returns week number relative to Jan 1, 1970 - where time_t is 0
+int weekNumber(time_t t) {
+    // get day of week of startDate
+    std::tm date_tm;
+    localtime_s(&date_tm, &t);
+    const int start_day_of_week = date_tm.tm_wday;
+    // compute # of days since Dec 28, 1969, a Sunday
+    // then, week number is just the day number divided by 7
+    const long day_num = (long)t / seconds_in_day + 4;
+    return day_num / 7;
+}
+
