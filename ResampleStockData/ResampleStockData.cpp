@@ -12,7 +12,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio);
+bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio, float& min_value);
 bool ProcessCSVFile(std::vector<int> ratio, std::ifstream& input_file, std::ofstream& output_file);
 bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t);
 std::vector<string> split(const string& line, const char* delimiter);
@@ -30,7 +30,8 @@ int main(int argc, const char* argv[])
     std::filesystem::path directory;
     char interval;
     std::vector<int> ratio;
-    bool rc = ProcessCommandLine(argc, argv, directory, interval, ratio);
+    float min_value = 1.0f;
+    bool rc = ProcessCommandLine(argc, argv, directory, interval, ratio, min_value);
     if (!rc)
         return -1;
 
@@ -88,10 +89,11 @@ int main(int argc, const char* argv[])
     return 0;
 }
 
-bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio) {
+bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio, float& min_value) {
     bool directorySpecified = false;
     bool intervalIsSpecified = false;
     bool ratioIsSpecified = false;
+    bool minIsSpecified = false;
 
     for (int i = 1; i < argc; i += 2) {
         const string parm(argv[i]);
@@ -170,6 +172,38 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
                 cout << "***Error*** No ratio (train#:valid#:test#) specified after -r" << endl;
                 return false;
             }
+        }
+        else if (parm == "-m" || parm == "--min") {
+            if (minIsSpecified)
+            {
+                cout << "***Error*** min specified more than once." << endl;
+                return false;
+            }
+            minIsSpecified = true;
+
+            if (i + 1 < argc) {
+                string minstr{ argv[i + 1] };
+                cout << "minimum value = " << minstr << endl;
+
+                if (minstr.find_first_not_of("0123456789.") == string::npos) {
+                    double dval = atof(minstr.c_str());
+                    if (dval < 0.0 || dval > 1000.0) {
+                        cout << "***Error*** Invalid minimum value" << endl;
+                        return false;
+                    }
+                    min_value = (float)dval;
+                }
+                else {
+                    cout << "***Error*** Invalid minimum value" << endl;
+                    return false;
+                }
+
+            }
+            else {
+                cout << "***Error*** No value specified after -m" << endl;
+                return false;
+            }
+
         }
         else {
             cout << "'" << parm << "' is not a recognized parameter. Try ResampleStockData.cpp -h...but not yet" << endl;
