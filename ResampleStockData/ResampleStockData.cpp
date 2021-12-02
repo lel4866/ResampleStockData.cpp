@@ -6,6 +6,7 @@
 #include <filesystem>
 #include <fstream>
 #include <map>
+#include <functional>
 #include <cassert>
 
 using std::cout;
@@ -13,12 +14,15 @@ using std::endl;
 using std::string;
 
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio, float& min_value);
-bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file);
+bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file);
 bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t);
 std::vector<string> split(const string& line, const char* delimiter);
 int dayOfWeek(int day, int month, int year);
-int weekNumber(int start_weel_number, time_t curDate);
 int weekNumber(time_t t);
+int weekNumber(int start_week_number, time_t curDate);
+int monthNumber(time_t t);
+int monthNumber(int start_month_number, time_t curDate);
+bool checkPeriod(std::function<int(int, const time_t)> periodNumberFunc, int start_period_number, const time_t cur_time, int cur_period);
 
 time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t, const string& dataset_name);
 
@@ -77,7 +81,7 @@ int main(int argc, const char* argv[])
 
             // now process input file to output file
             cout << endl << "Resampling '" << input_filename << "' to create '" << output_filename << endl;
-            if (!ProcessCSVFile(ratio, min_value, csv_file, resampled_csv_file))
+            if (!ProcessCSVFile(interval, ratio, min_value, csv_file, resampled_csv_file))
                 continue;
         }
     }
@@ -130,14 +134,14 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
             intervalIsSpecified = true;
 
             if (i + 1 < argc) {
-                if (strlen(argv[i + 1]) != 1 || (*argv[i + 1] != 'd' && *argv[i + 1] != 'w')) {
-                    cout << "***Error*** Invalid interval. Must be d or w" << endl;
+                if (strlen(argv[i + 1]) != 1 || (*argv[i + 1] != 'd' && *argv[i + 1] != 'w' && *argv[i + 1] != 'm')) {
+                    cout << "***Error*** Invalid interval. Must be d, w, or m" << endl;
                     return false;
                 }
                 interval = *argv[i + 1];
             }
             else {
-                cout << "***Error*** No interval (d or w) specified after -i" << endl;
+                cout << "***Error*** No interval (d, w, or m) specified after -i" << endl;
                 return false;
             }
         }
@@ -214,7 +218,7 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
     return true;
 }
 
-bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file) {
+bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file) {
     time_t t;
     string line;
     std::map<std::time_t, std::vector<string>> bars; // time_t is the date, the vector contains a string for each time in the day
@@ -321,32 +325,12 @@ bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& inpu
     std::vector<std::vector<string>> validation_set;
     std::vector<std::vector<string>> test_set;
     std::vector<std::vector<string>>* pSelectedSet{ nullptr };
-#if 0   
-    auto day_iterator = bars.begin();
-    while (true) {
-        for (int i = 0; i < 3; i++) {
-            switch (i) {
-                case 0: pSelectedSet = &training_set; break;
-                case 1: pSelectedSet = &validation_set; break;
-                case 2: pSelectedSet = &test_set; break;
-            }
 
-            // place ratio[i] # of days into selected vector
-            for (int j = 0; j < ratio[i]; j++) {
-                if (day_iterator == bars.end())
-                    goto end;
-                std::vector<string>& day = (*day_iterator++).second;
-                pSelectedSet->emplace_back(std::move(day)); // we will never ever try and use this entry in bars map
-            }
-        }
-    }
-#endif
-
-#if 1   
     auto day_iterator = bars.begin();
     time_t start_day = (*day_iterator).first;
-    int start_week_number = weekNumber(start_day);
-    int cur_week = 0;
+    int start_period_number;
+    int cur_period{ 0 };
+
     while (true) {
         for (int i = 0; i < 3; i++) {
             switch (i) {
@@ -355,34 +339,80 @@ bool ProcessCSVFile(std::vector<int> ratio, float min_value, std::ifstream& inpu
             case 2: pSelectedSet = &test_set; break;
             }
 
-            // place ratio[i] # of weeks into selected vector
-            for (int j = 0; j < ratio[i]; j++, cur_week++) {
-                // put a whole weeks worth of days into selected vector
-                while ((day_iterator != bars.end()) && weekNumber(start_week_number, (*day_iterator).first) == cur_week) {
-                    std::vector<string>& day = (*day_iterator++).second;
-                    // because of std::move, we can never use this entry in bars map after this point in the code
-                    pSelectedSet->emplace_back(std::move(day));
-                }
-#if 0 // for debugging only...must remove for production
-                std::vector<string> day;
-                string week_marker = ",00:00:00,0,0,0,0,0,0,end of week " + std::to_string(cur_week);
-                switch (i) {
-                case 0: week_marker += " training set"; break;
-                case 1: week_marker += " validation set"; break;
-                case 2: week_marker += " test set"; break;
-                }
+            // yes...I could have "compressed" this with lambda's...but this is easier to understand and debug
+            switch (interval) {
+            case 'd':
+                while (true) {
+                    for (int i = 0; i < 3; i++) {
+                        switch (i) {
+                        case 0: pSelectedSet = &training_set; break;
+                        case 1: pSelectedSet = &validation_set; break;
+                        case 2: pSelectedSet = &test_set; break;
+                        }
 
-                day.push_back(week_marker);
-                pSelectedSet->emplace_back(day);
-#endif
+                        // place ratio[i] # of days into selected vector
+                        for (int j = 0; j < ratio[i]; j++) {
+                            if (day_iterator == bars.end())
+                                goto end;
+                            std::vector<string>& day = (*day_iterator++).second;
+                            pSelectedSet->emplace_back(std::move(day)); // we will never ever try and use this entry in bars map
+                        }
+                    }
+                }
+                break;
 
-                if (day_iterator == bars.end())
-                    goto end;
+            case 'w':
+                start_period_number = weekNumber(start_day);
+                while (true) {
+                    for (int i = 0; i < 3; i++) {
+                        switch (i) {
+                        case 0: pSelectedSet = &training_set; break;
+                        case 1: pSelectedSet = &validation_set; break;
+                        case 2: pSelectedSet = &test_set; break;
+                        }
+
+                        // place ratio[i] # of weeks into selected vector
+                        for (int j = 0; j < ratio[i]; j++, cur_period++) {
+                            // put a whole weeks worth of days into selected vector
+                            while ((day_iterator != bars.end()) && weekNumber(start_period_number, (*day_iterator).first) == cur_period) {
+                                std::vector<string>& day = (*day_iterator++).second;
+                                // because of std::move, we can never use this entry in bars map after this point in the code
+                                pSelectedSet->emplace_back(std::move(day));
+                            }
+                            if (day_iterator == bars.end())
+                                goto end;
+                        }
+                    }
+                }
+                break;
+
+            case 'm':
+                start_period_number = monthNumber(start_day);
+                while (true) {
+                    for (int i = 0; i < 3; i++) {
+                        switch (i) {
+                        case 0: pSelectedSet = &training_set; break;
+                        case 1: pSelectedSet = &validation_set; break;
+                        case 2: pSelectedSet = &test_set; break;
+                        }
+
+                        // place ratio[i] # of weeks into selected vector
+                        for (int j = 0; j < ratio[i]; j++, cur_period++) {
+                            // put a whole weeks worth of days into selected vector
+                            while ((day_iterator != bars.end()) && monthNumber(start_period_number, (*day_iterator).first) == cur_period) {
+                                std::vector<string>& day = (*day_iterator++).second;
+                                // because of std::move, we can never use this entry in bars map after this point in the code
+                                pSelectedSet->emplace_back(std::move(day));
+                            }
+                            if (day_iterator == bars.end())
+                                goto end;
+                        }
+                    }
+                }
+                break;
             }
         }
     }
-#endif
-
 end:
 
     // write output file
@@ -488,4 +518,37 @@ int weekNumber(time_t t) {
     const long day_num = (long)t / seconds_in_day + 4;
     return day_num / 7;
 }
+
+int monthNumber(int start_month_number, time_t curDate) {
+    return monthNumber(curDate) - start_month_number;
+}
+
+// get # of months between given time_t and Jan 1970
+int monthNumber(time_t t) {
+    std::tm date_tm;
+    localtime_s(&date_tm, &t);
+    const int years_since_1970 = date_tm.tm_year - 70;
+    return years_since_1970 * 12 + date_tm.tm_mon;
+}
+
+bool checkPeriod(std::function<int(int, const time_t)> periodNumberFunc, int start_period_number, const time_t cur_time, int cur_period) {
+    int xx = periodNumberFunc(start_period_number, cur_time);
+    bool bb = xx == cur_period;
+    return periodNumberFunc(start_period_number, cur_time) == cur_period;
+}
+
+#if 0 // for debugging only to make sure weeks are interleaved properly...must remove for production
+std::vector<string> day;
+string week_marker = ",00:00:00,0,0,0,0,0,0,end of week " + std::to_string(cur_week);
+switch (i) {
+case 0: week_marker += " training set"; break;
+case 1: week_marker += " validation set"; break;
+case 2: week_marker += " test set"; break;
+}
+
+day.push_back(week_marker);
+pSelectedSet->emplace_back(day);
+#endif
+
+
 
