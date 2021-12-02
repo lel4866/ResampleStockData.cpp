@@ -341,7 +341,7 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
 
             // yes...I could have "compressed" this with lambda's...but this is easier to understand and debug
             switch (interval) {
-            case 'd':
+            case 'd': // ratio vector is in days: ratio[0]=# training days, ratio[1]=# of validation days, ratio[2]=# of test days
                 while (true) {
                     for (int i = 0; i < 3; i++) {
                         switch (i) {
@@ -361,7 +361,7 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
                 }
                 break;
 
-            case 'w':
+            case 'w': // ratio vector is in weeks: ratio[0]=# training weeks, ratio[1]=# of validation weeks, ratio[2]=# of test weeks
                 start_period_number = weekNumber(start_day);
                 while (true) {
                     for (int i = 0; i < 3; i++) {
@@ -386,7 +386,7 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
                 }
                 break;
 
-            case 'm':
+            case 'm': // ratio vector is in months: ratio[0]=# training months, ratio[1]=# of validation months, ratio[2]=# of test months
                 start_period_number = monthNumber(start_day);
                 while (true) {
                     for (int i = 0; i < 3; i++) {
@@ -396,7 +396,7 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
                         case 2: pSelectedSet = &test_set; break;
                         }
 
-                        // place ratio[i] # of weeks into selected vector
+                        // place ratio[i] # of months into selected vector
                         for (int j = 0; j < ratio[i]; j++, cur_period++) {
                             // put a whole weeks worth of days into selected vector
                             while ((day_iterator != bars.end()) && monthNumber(start_period_number, (*day_iterator).first) == cur_period) {
