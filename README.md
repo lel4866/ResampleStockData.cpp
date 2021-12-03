@@ -39,6 +39,7 @@ high, low, and close are greater than or equal to the specified minimum value.
 Example:
 ```
 ResampleStockData.exe -d C:/Users/lel48/SQXData -i w -r 3:2:1 -m 1.0
+```
 
 ## How to build this program
 This program is written in C++17 and is built with Micorosft Visual Studio(t) Professional 2022. I'm pretty sure Visual Studio 2019 will also work.
