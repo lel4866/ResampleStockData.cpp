@@ -12,7 +12,7 @@ validation (In Sample Validation), and test data sets (Out of Sample)
 Why would you want to do this? Because for non-stationary time series, such as those found in stock/futures data, we would like to both train and test
 on the most recent samples. But most software requires us to specify contiguous segments of time to separate these data sets.
 
-If the training software allows us to use/generate trading systems that always exit at the end of day, end of week, end of month, or even end of
+If the backtesting software allows us to use/generate trading systems that always exit at the end of day, end of week, end of month, or even end of
 year, instead of using contiguous sets of data, we could use interleaved sets of data.
 
 For example, if I had a system that exited end of week, and if my total data set consisted of 50 weeks of data, instead of specifying, for instance,
@@ -25,8 +25,8 @@ the software sees contiguous segments. The only extra requirement is that the tr
 piece is no longer the piece that was in fact, the prior piece.
 
 ### Note about StrategyQuant(tm)
-I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable traing systems, does have setting that
-allow you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
+I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have setting that
+allows you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
 https://strategyquant.com/doc/strategyquant/trading-options/#exit-at-end-of-day-exit-on-friday
 
 ## Command line arguments
