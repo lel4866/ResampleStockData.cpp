@@ -13,6 +13,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
+// forward declarations
 bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& directory, char& interval, std::vector<int>& ratio, float& min_value);
 bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std::ifstream& input_file, std::ofstream& output_file);
 bool DateStringsToTime_t(const string& line, const string& date, std::time_t& t);
@@ -23,7 +24,6 @@ int weekNumber(int start_week_number, time_t curDate);
 int monthNumber(time_t t);
 int monthNumber(int start_month_number, time_t curDate);
 bool checkPeriod(std::function<int(int, const time_t)> periodNumberFunc, int start_period_number, const time_t cur_time, int cur_period);
-
 time_t writeOutputFile(std::ofstream& output_file, const std::vector<std::vector<string>>& days, time_t initial_time_t, const string& dataset_name);
 
 constexpr int seconds_in_day = 24 * 60 * 60;
@@ -263,12 +263,13 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
             if (!bars_for_day.empty()) {
                 auto retval = bars.emplace(cur_date_time_t, std::move(bars_for_day));
                 num_days++;
-                if (cur_date_time_t == 1637902800) {
-                    int xxx = 1;
-                }
                 bars_for_day.clear(); // resurrect moved bars_for_day
-                if (!retval.second)
+
+                if (!retval.second) {
                     cout << "***Error*** Duplicate date: " << line << endl;
+                    cur_date_time_t = t;
+                    continue;
+                }
             }
             cur_date_time_t = t;
         }
