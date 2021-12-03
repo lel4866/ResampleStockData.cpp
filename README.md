@@ -25,7 +25,7 @@ the software sees contiguous segments. The only extra requirement is that the tr
 piece is no longer the piece that was in fact, the prior piece.
 
 ### Note about StrategyQuant(tm)
-I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have setting that
+I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have a setting that
 allows you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
 https://strategyquant.com/doc/strategyquant/trading-options/#exit-at-end-of-day-exit-on-friday
 

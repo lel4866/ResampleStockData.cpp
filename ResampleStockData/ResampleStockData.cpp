@@ -159,8 +159,18 @@ bool ProcessCommandLine(int argc, const char* argv[], std::filesystem::path& dir
                 while (ctoken != nullptr) {
                     // convert token to integer
                     string token{ ctoken };
-                    if (token.find_first_not_of("0123456789") == string::npos)
-                        ratio.push_back(atoi(token.c_str()));
+                    if (token.size() > 0 && token.find_first_not_of("0123456789") == string::npos) {
+                        int r = atoi(token.c_str());
+                        if (r > 9) {
+                            cout << "***Error*** Invalid ratio specification. Value must be less than 10" << endl;
+                            return false;
+                        }
+                        if (r == 0 && ratio.size() < 2) {
+                            cout << "***Error*** Invalid ratio specification. Only test value may be 0" << endl;
+                            return false;
+                        }
+                        ratio.push_back(r);
+                    }
                     else {
                         cout << "***Error*** Invalid ratio specification (train#:valid#:test#)" << endl;
                         return false;
