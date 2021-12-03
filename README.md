@@ -1,4 +1,4 @@
-# ResampleStockData.cpp
+# ResampleStockData.cpp Version 0.1.0
 Windows command line program which re-orders stock data in .csv files to obtain interleaved (in time) training (In Sample Training),
 validation (In Sample Validation), and test data sets (Out of Sample)
 
@@ -39,4 +39,11 @@ high, low, and close are greater than or equal to the specified minimum value.
 Example:
 ```
 ResampleStockData.exe -d C:/Users/lel48/SQXData -i w -r 3:2:1 -m 1.0
+
+## How to build this program
+This program is written in C++17 and is built with Micorosft Visual Studio(t) Professional 2022. I'm pretty sure Visual Studio 2019 will also work.
+
+## License and how to obtain the executable
+This program is licensed under the GNU Affero General Public License (https://www.gnu.org/licenses/agpl-3.0.en.html).
+You can contact the author, Lawrence E. Lewis, at lel486@gmail.com if you would like to get a copy of the executable.
 ```
