@@ -24,6 +24,11 @@ It does this by assembling the pieces (each piece being a day/week/month) into a
 the software sees contiguous segments. The only extra requirement is that the trading system does not use any data from the prior piece, since that
 piece is no longer the piece that was in fact, the prior piece.
 
+### Note about StrategyQuant(tm)
+I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable traing systems, does have setting that
+allow you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
+https://strategyquant.com/doc/strategyquant/trading-options/#exit-at-end-of-day-exit-on-friday
+
 ## Command line arguments
 
 Reads all files with .csv extension from directory specified in -d option and writes to same filenames as read with additional "_resampled" postfix
@@ -49,7 +54,7 @@ ResampleStockData.exe -d C:/Users/lel48/SQXData -i w -r 3:2:1 -m 1.0
 ```
 
 ## How to build this program
-This program is written in C++17 and is built with Micorosft Visual Studio(t) Professional 2022. I'm pretty sure Visual Studio 2019 will also work.
+This program is written in C++17 and is built with Micorosft Visual Studio(tm) Professional 2022. I'm pretty sure Visual Studio 2019 will also work.
 
 ## License and how to obtain the executable
 This program is licensed under the GNU Affero General Public License (https://www.gnu.org/licenses/agpl-3.0.en.html).
