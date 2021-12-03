@@ -14,7 +14,7 @@ validation, and test, say, 3:2:1. Then the training data would consist of weeks 
 16-17, and the test data would consists of weeks 6, 12, 18. But...most software does not allow you to do this. So... This program will enable you
 to do this with any software that allows both separation of the data into continguous segments and specification of end of day/week/month exits.
 It does this by assembling the pieces (each piece being a day/week/month) into a contiguous segment and then remapping the dates of the bars so that
-the software sees contiguous segments. The only extra requireent is that the trading system does not use any data from the prior piece, since that
+the software sees contiguous segments. The only extra requirement is that the trading system does not use any data from the prior piece, since that
 piece is no longer the piece that was in fact, the prior piece.
 
 ## Command line arguments
