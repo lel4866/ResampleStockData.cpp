@@ -9,7 +9,7 @@ might not use it in the way you expect.
 Windows command line program which re-orders stock data in TradeStation&tm; format .csv files to obtain interleaved (in time) training (In Sample Training),
 validation (In Sample Validation), and test data sets (Out of Sample).
 
-TradeStation&tm; format CSV files look like the following:
+TradeStation&reg; format CSV files look like the following:
 ```
 "Date","Time","Open","High","Low","Close","Up","Down"
 01/02/1991,10:30,0.38,0.38,0.38,0.38,42560000,0
