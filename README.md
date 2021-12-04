@@ -31,6 +31,14 @@ It does this by assembling the pieces (each piece being a day/week/month) into a
 the software sees contiguous segments. The only extra requirement is that the trading system does not use any data from the prior piece, since that
 piece is no longer the piece that was in fact, the prior piece.
 
+## Caveat - Very Important!!
+In order to use interleaved data, your trading system generation/optimization software must use indicators that reset at the beginning of each period,
+rather than using values for prior periods. **VALUES FROM PRIOR PERIODS ARE NOT VALID!**. For instanc if your trading system ued a 10 day moving average,
+it can't use that moving average to make
+decisions until after 10 periods into the period. Alternatively, it could use a special 10 day moving average whose first value was the first value of
+the period, secind value the average of the first two values, third value the average of the first 3 values, etc., until it got to 10th value, at
+which point it just takes the average of the last 10 values.
+
 ### Note about StrategyQuant&reg;
 I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have a setting that
 allows you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
