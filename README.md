@@ -34,10 +34,15 @@ piece is no longer the piece that was in fact, the prior piece.
 ### Caveat - Very Important!!
 In order to use interleaved data, your trading system generation/optimization software must use indicators that reset at the beginning of each period,
 where period is daily, weekly, or monthly, as specified in the interval parameter, rather than using values from prior periods. **VALUES FROM PRIOR PERIODS
-ARE NOT VALID!**. For instance, if your trading system ued a 10 day moving average, it can't use that moving average to make
+ARE NOT VALID!**. For instance, if your trading system used a 10 day moving average, it can't use that moving average to make
 decisions until after 10 bars into the period. Alternatively, it could use a special 10 day moving average whose first value was from the first bar of
 the period, second value the average of the first two values, third value the average of the first 3 values, etc., until it got to 10th value, at
-which point it just takes the average of the last 10 values.
+which point it just takes the average of the last 10 values. Effectively, this requires you to have "enough" bars in each period so that indicators
+have accurate values for most of the period...you probably couldn't use a daily interval with 30 minute bars. So, even for a monthly interval, you
+probably need bars no larger than 60 minutes.
+
+Future work could overcome this by including prior bars in each period's data, but you still could not actually enter a trade until the indicators had
+properly stabilized.
 
 ### Note about StrategyQuant&reg;
 I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have a setting that
