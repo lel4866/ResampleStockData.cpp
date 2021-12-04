@@ -245,7 +245,7 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
         cout << "***Warning*** First line is not expected header:" << expected_header2 << endl;
 
     // write header to output file
-    output_file << line << endl;
+    output_file << expected_header2 << ",OriginalDate" << endl;
 
     // Read data, line by line and create dictionary<DateTime, Tick>
     char* next_token = nullptr;
@@ -308,7 +308,10 @@ bool ProcessCSVFile(char interval, std::vector<int> ratio, float min_value, std:
         std::ostringstream oss;
         for (int i = 1; i < 8; i++)
             oss << ',' << fields[i];
+        // append original date to end of string
+        oss << ',' << fields[0];
 
+        string xxx = oss.str();
         // append bar string to bars_for_day vector
         bars_for_day.emplace_back(oss.str());
     }
