@@ -53,6 +53,7 @@ Example:
 ResampleStockData.exe -d C:/Users/lel48/SQXData -i w -r 3:2:1 -m 1.0
 ```
 ## Example Input
+
 ```
 "Date","Time","Open","High","Low","Close","Up","Down"
 01/02/1991,10:30,0.38,0.38,0.38,0.38,42560000,0
@@ -62,6 +63,7 @@ ResampleStockData.exe -d C:/Users/lel48/SQXData -i w -r 3:2:1 -m 1.0
 ```
 
 ##Example Output
+
 ```
 Date,Time,Open,High,Low,Close,Up,Down,OriginalDate
 01/02/1991,10:30:00,0.38,0.38,0.38,0.38,42560000,0,01/02/1991
