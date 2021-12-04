@@ -6,8 +6,15 @@ might not use it in the way you expect.
 
 ## Summary
 
-Windows command line program which re-orders stock data in .csv files to obtain interleaved (in time) training (In Sample Training),
-validation (In Sample Validation), and test data sets (Out of Sample)
+Windows command line program which re-orders stock data in TradeStation:tm: format .csv files to obtain interleaved (in time) training (In Sample Training),
+validation (In Sample Validation), and test data sets (Out of Sample).
+
+TradeStation format CSV files look like the following:
+```
+"Date","Time","Open","High","Low","Close","Up","Down"
+01/02/1991,10:30,0.38,0.38,0.38,0.38,42560000,0
+01/02/1991,11:30,0.38,0.38,0.38,0.38,15187200,0
+```
 
 Why would you want to do this? Because for non-stationary time series, such as those found in stock/futures data, we would like to both train and test
 on the most recent samples. But most software requires us to specify contiguous segments of time to separate these data sets.
@@ -24,7 +31,7 @@ It does this by assembling the pieces (each piece being a day/week/month) into a
 the software sees contiguous segments. The only extra requirement is that the trading system does not use any data from the prior piece, since that
 piece is no longer the piece that was in fact, the prior piece.
 
-### Note about StrategyQuant(tm)
+### Note about StrategyQuant:tm:
 I know that StrategyQuant (https://strategyquant.com/), which uses a genetic algorithm to search for profitable trading systems, does have a setting that
 allows you to specify that a generated system will exit at the end of the day or Friday. You can look in the StratgeryQuant documentation available at
 https://strategyquant.com/doc/strategyquant/trading-options/#exit-at-end-of-day-exit-on-friday
@@ -73,7 +80,7 @@ Date,Time,Open,High,Low,Close,Up,Down,OriginalDate
 ```
 
 ## How to build this program
-This program is written in C++17 and is built with Micorosft Visual Studio(tm) Professional 2022. I'm pretty sure Visual Studio 2019 will also work.
+This program is written in C++17 and is built with Micorosft Visual Studio Professional 2022:tm:. I'm pretty sure Visual Studio 2019 will also work.
 
 ## License and how to obtain the executable
 This program is licensed under the GNU Affero General Public License (https://www.gnu.org/licenses/agpl-3.0.en.html).
