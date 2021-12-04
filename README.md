@@ -23,7 +23,7 @@ If the backtesting software allows us to use/generate trading systems that alway
 year, instead of using contiguous sets of data, we could use interleaved sets of data.
 
 For example, if I had a system that exited end of week, and if my total data set consisted of 50 weeks of data, instead of specifying, for instance,
-that the training data was weeks 1-30, the validation was weeks 31-40, and the test was weeks 41-50, we could speciy a ratio for the training,
+that the training data was weeks 1-30, the validation was weeks 31-40, and the test was weeks 41-50, we could specify a ratio for the training,
 validation, and test, say, 3:2:1. Then the training data would consist of weeks 1-3, 7-9, 13-15, etc., the validation data would be weeks 4-5, 10-11,
 16-17, and the test data would consists of weeks 6, 12, 18. But...most software does not allow you to do this. So... This program will enable you
 to do this with any software that allows both separation of the data into continguous segments and specification of end of day/week/month exits.
