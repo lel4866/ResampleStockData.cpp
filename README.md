@@ -19,8 +19,8 @@ TradeStation&reg; format CSV files look like the following:
 Why would you want to do this? Because for non-stationary time series, such as those found in stock/futures data, we would like to both train and test
 on the most recent samples. But most software requires us to specify contiguous segments of time to separate these data sets.
 
-If the backtesting software allows us to use/generate trading systems that always exit at the end of day, end of week, end of month, or even end of
-year, instead of using contiguous sets of data, we could use interleaved sets of data.
+If the backtesting software allows us to use/generate trading systems that always exit at the end of a period, such as end of day, end of week,
+end of month, or even end of year, instead of using contiguous sets of data, we could use interleaved sets of data.
 
 For example, if I had a system that exited end of week, and if my total data set consisted of 50 weeks of data, instead of specifying, for instance,
 that the training data was weeks 1-30, the validation was weeks 31-40, and the test was weeks 41-50, we could specify a ratio for the training,
@@ -31,12 +31,12 @@ It does this by assembling the pieces (each piece being a day/week/month) into a
 the software sees contiguous segments. The only extra requirement is that the trading system does not use any data from the prior piece, since that
 piece is no longer the piece that was in fact, the prior piece.
 
-## Caveat - Very Important!!
+### Caveat - Very Important!!
 In order to use interleaved data, your trading system generation/optimization software must use indicators that reset at the beginning of each period,
-rather than using values for prior periods. **VALUES FROM PRIOR PERIODS ARE NOT VALID!**. For instanc if your trading system ued a 10 day moving average,
-it can't use that moving average to make
-decisions until after 10 periods into the period. Alternatively, it could use a special 10 day moving average whose first value was the first value of
-the period, secind value the average of the first two values, third value the average of the first 3 values, etc., until it got to 10th value, at
+where period is daily, weekly, or monthly, as specified in the interval parameter, rather than using values from prior periods. **VALUES FROM PRIOR PERIODS
+ARE NOT VALID!**. For instance, if your trading system ued a 10 day moving average, it can't use that moving average to make
+decisions until after 10 bars into the period. Alternatively, it could use a special 10 day moving average whose first value was from the first bar of
+the period, second value the average of the first two values, third value the average of the first 3 values, etc., until it got to 10th value, at
 which point it just takes the average of the last 10 values.
 
 ### Note about StrategyQuant&reg;
